@@ -2,7 +2,7 @@
 
 基于 **Monaco Editor**（VSCode 同款编辑器核心）的 QwenPaw 在线代码编辑插件。
 
-![QwenPaw 代码编辑器 v0.0.1](qwenpaw-code-editor-0.0.1.png)
+![QwenPaw 代码编辑器 v0.1.0](qwenpaw-code-editor-0.1.0.png)
 
 - 左侧文件树浏览目录（懒加载），点击文件在右侧打开编辑
 - 按扩展名自动切换语法高亮（python / javascript / typescript / html / css / json / markdown / shell / go / rust / java / c/c++ 等 20+ 语言）

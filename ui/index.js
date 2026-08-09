@@ -1,5 +1,5 @@
 /**
- * QwenPaw 代码编辑器 v0.0.1 — 前端 GUI
+ * QwenPaw 代码编辑器 v0.1.0 — 前端 GUI
  * 基于 Monaco Editor（VSCode 同款编辑器核心，CDN AMD 加载，无构建）：
  *   - 左侧文件树：懒加载目录、点击打开文件（仅访问当前工作区 / 平台 NAS 根）
  *   - 右侧编辑区：语法高亮自动识别（20+ 语言）、Ctrl+S 保存、未保存标记
@@ -20,7 +20,7 @@
 
   var PLUGIN_ID = "qwenpaw-code-editor";
   var PLUGIN_NAME = "代码编辑器";
-  var VERSION = "0.0.1";
+  var VERSION = "0.1.0";
   var API_BASE = "/api/qwenpaw-code-editor";
   var MONACO_CDN = "https://cdn.jsdelivr.net/npm/monaco-editor@0.56.0/min/vs";
 
@@ -569,7 +569,7 @@
       if (!rootPath) return h("div", { style: { color: C.muted, padding: 12, fontSize: 13 } }, "加载中…");
       var treeRoot = treeRootRef.current || rootPath;
       var rootNode = nodesRef.current[treeRoot] || { item: { name: basename(treeRoot), path: treeRoot, type: "dir" }, loaded: false, expanded: false, children: [] };
-      return h("div", { style: { overflow: "auto", flex: 1, paddingBottom: 8 } },
+      return h("div", { className: "ce-tree-scroll", style: { overflow: "auto", flex: 1, paddingBottom: 8 } },
         renderNode(treeRoot, rootNode, 0)
       );
     }
@@ -681,6 +681,24 @@
       ),
     );
   }
+
+  // ---------- 文件树滚动条样式 ----------
+  // 平台/其它面板为暗色细滚动条（或隐藏），文件树此前是浏览器默认样式，这里统一为暗色细条，
+  // 与 Monaco 编辑器滚动条风格一致（class 限定作用域，不影响平台其它区域）
+  (function () {
+    try {
+      if (document.getElementById("ce-scrollbar-style")) return;
+      var s = document.createElement("style");
+      s.id = "ce-scrollbar-style";
+      s.textContent =
+        ".ce-tree-scroll::-webkit-scrollbar{width:10px;height:10px}" +
+        ".ce-tree-scroll::-webkit-scrollbar-track{background:transparent}" +
+        ".ce-tree-scroll::-webkit-scrollbar-thumb{background:rgba(110,118,129,.4);border-radius:5px;border:2px solid transparent;background-clip:content-box}" +
+        ".ce-tree-scroll::-webkit-scrollbar-thumb:hover{background:rgba(110,118,129,.65);border:2px solid transparent;background-clip:content-box}" +
+        ".ce-tree-scroll::-webkit-scrollbar-corner{background:transparent}";
+      document.head.appendChild(s);
+    } catch (e) { console.error(e); }
+  })();
 
   // ---------- 注册 ----------
   var routes = [{ path: "/apps/" + PLUGIN_ID, component: App, label: PLUGIN_NAME, icon: "📝" }];
