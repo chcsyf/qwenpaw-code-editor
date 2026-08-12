@@ -1,5 +1,5 @@
 /**
- * QwenPaw 代码编辑器 v0.1.0 — 前端 GUI
+ * QwenPaw 代码编辑器 v0.1.1 — 前端 GUI
  * 基于 Monaco Editor（VSCode 同款编辑器核心，CDN AMD 加载，无构建）：
  *   - 左侧文件树：懒加载目录、点击打开文件（仅访问当前工作区 / 平台 NAS 根）
  *   - 右侧编辑区：语法高亮自动识别（20+ 语言）、Ctrl+S 保存、未保存标记
@@ -20,7 +20,7 @@
 
   var PLUGIN_ID = "qwenpaw-code-editor";
   var PLUGIN_NAME = "代码编辑器";
-  var VERSION = "0.1.0";
+  var VERSION = "0.1.1";
   var API_BASE = "/api/qwenpaw-code-editor";
   var MONACO_CDN = "https://cdn.jsdelivr.net/npm/monaco-editor@0.56.0/min/vs";
 
@@ -262,6 +262,14 @@
 
     // 初始化：status + 根目录 + 恢复缓存（展开链 / 打开文件 / 滚动位置）
     React.useEffect(function () {
+      // 从文件浏览器跳转打开指定文件：file-browser 会把目标路径写入
+      // localStorage（键 qwenpaw-code-editor:externalFile），读完即删。
+      // 说明：宿主 SPA 路由渲染时会重写 URL 丢弃 query，故不用 ?file= 参数。
+      var externalFile = null;
+      try {
+        externalFile = localStorage.getItem("qwenpaw-code-editor:externalFile");
+        if (externalFile) localStorage.removeItem("qwenpaw-code-editor:externalFile");
+      } catch (e) { /* ignore */ }
       fetchJson(API_BASE + "/status")
         .then(function (j) {
           setStatus(j);
@@ -288,7 +296,15 @@
               });
             }
             return loadChain(chain, function () {
-              var f = localStorage.getItem(LS_FILE);
+              // 优先打开外部跳转指定文件（文件浏览器「编辑」）；否则恢复上次文件
+              var f = externalFile || localStorage.getItem(LS_FILE);
+              if (externalFile) {
+                // 同时把文件树定位到该文件所在目录（父目录若已加载则展开）
+                var parentDir = dirname(externalFile);
+                if (parentDir && parentDir !== treeRootRef.current) {
+                  loadDir(parentDir, parentDir, true);
+                }
+              }
               if (f && editorRef.current) { openPath(f); }
               else if (f) { pendingOpen = f; }
             });

@@ -1,5 +1,14 @@
 # 变更记录
 
+## v0.1.1（2026-08-12）
+
+- **从文件浏览器跳转打开**：文件浏览器（qwenpaw-file-browser）文件行「✏️ 编辑」按钮
+  或预览弹层「✏️ 编辑」，跳转到本插件并自动打开指定文件；初始化读取
+  `localStorage["qwenpaw-code-editor:externalFile"]`（读后即删）优先于恢复的上次文件，
+  并自动把文件树定位到目标文件所在目录
+- 说明：宿主 SPA 路由渲染时会重写 URL 丢弃 query，故跨插件传参用同源 localStorage
+  而非 `?file=` URL 参数
+
 ## v0.1.0（2026-08-09）
 
 - 侧边栏入口移入「插件」分组（parentId: plugins-group），点击直达编辑器

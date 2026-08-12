@@ -1,7 +1,7 @@
 {
   "id": "qwenpaw-code-editor",
   "name": "代码编辑器",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "QwenPaw 代码编辑器 v0.1.0：基于 Monaco Editor（VSCode 同款编辑器核心）的在线代码编辑应用，支持浏览工作区目录、打开/编辑/新建文本与代码文件、Ctrl+S 保存；按扩展名自动切换语法高亮（python/javascript/typescript/html/css/json/markdown/shell 等 20+ 语言），深色主题；默认仅可访问当前工作区（平台模式可访问系统所有可读路径，遵循权限），二进制/超大文件安全拦截",
   "author": "QwenPaw QA Agent",
   "license": "Apache-2.0",
