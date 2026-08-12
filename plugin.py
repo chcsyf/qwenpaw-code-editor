@@ -1,5 +1,5 @@
 """
-QwenPaw 代码编辑器插件 v0.1.0
+QwenPaw 代码编辑器插件 v0.1.2
 在线代码编辑：浏览/打开/编辑/新建/保存工作区文本与代码文件。
 基于 Monaco Editor（VSCode 同款编辑器核心，CDN 加载，前端无构建）。
 
@@ -25,7 +25,7 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-PLUGIN_VERSION = "0.1.1"
+PLUGIN_VERSION = "0.1.2"
 
 # 编辑器适合打开的文件大小上限（默认 2MB，超出提示用文件浏览器下载）
 MAX_READ_BYTES = 2 * 1024 * 1024

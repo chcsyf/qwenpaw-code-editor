@@ -1,5 +1,5 @@
 /**
- * QwenPaw 代码编辑器 v0.1.1 — 前端 GUI
+ * QwenPaw 代码编辑器 v0.1.2 — 前端 GUI
  * 基于 Monaco Editor（VSCode 同款编辑器核心，CDN AMD 加载，无构建）：
  *   - 左侧文件树：懒加载目录、点击打开文件（仅访问当前工作区 / 平台 NAS 根）
  *   - 右侧编辑区：语法高亮自动识别（20+ 语言）、Ctrl+S 保存、未保存标记
@@ -20,7 +20,7 @@
 
   var PLUGIN_ID = "qwenpaw-code-editor";
   var PLUGIN_NAME = "代码编辑器";
-  var VERSION = "0.1.1";
+  var VERSION = "0.1.2";
   var API_BASE = "/api/qwenpaw-code-editor";
   var MONACO_CDN = "https://cdn.jsdelivr.net/npm/monaco-editor@0.56.0/min/vs";
 
@@ -159,6 +159,91 @@
     return monacoPromise;
   }
 
+  // ---------- Monaco 右键菜单汉化 ----------
+  // Monaco 内置右键菜单（Cut/Copy/Paste/Select All/Command Palette 等）默认英文。
+  // 通过修改 action 的 label 汉化——右键菜单每次打开都从 action 实时读取 label，改后立即生效。
+  var CTX_MENU_ZH = {
+    "editor.action.clipboardCutAction": "剪切",
+    "editor.action.clipboardCopyAction": "复制",
+    "editor.action.clipboardPasteAction": "粘贴",
+    "editor.action.selectAll": "全选",
+    "editor.action.clipboardCopyWithSyntaxHighlightingAction": "复制（带语法高亮）",
+    "editor.action.quickCommand": "命令面板",
+    "editor.action.formatDocument": "格式化文档",
+    "editor.action.formatSelection": "格式化所选内容",
+    "editor.action.toggleComment": "切换行注释",
+    "editor.action.addCommentLine": "添加行注释",
+    "editor.action.removeCommentLine": "删除行注释",
+    "editor.action.blockComment": "切换块注释",
+    "editor.action.revealDefinition": "转到定义",
+    "editor.action.peekDefinition": "查看定义",
+    "editor.action.revealDeclaration": "转到声明",
+    "editor.action.peekDeclaration": "查看声明",
+    "editor.action.rename": "重命名符号",
+    "editor.action.changeAll": "更改所有匹配项",
+    "editor.action.addSelectionToNextFindMatch": "将选中项添加到下一个查找匹配项",
+    "editor.action.addSelectionToPreviousFindMatch": "将选中项添加到上一个查找匹配项",
+    "editor.action.moveSelectionToNextFindMatch": "将上次选择移动到下一个查找匹配项",
+    "editor.action.moveSelectionToPreviousFindMatch": "将上次选择移动到上一个查找匹配项",
+    "editor.action.selectHighlights": "选择所有匹配项",
+    "editor.action.startFindWidget": "查找",
+    "editor.action.startFindReplaceAction": "替换",
+    "editor.action.toggleTabFocusMode": "切换 Tab 键移动焦点",
+    "editor.action.toggleWordHighlight": "切换单词高亮",
+    "editor.action.unicodeHighlight": "显示/隐藏 Unicode 高亮",
+    "editor.action.referenceSearch.trigger": "查找所有引用",
+    "editor.action.sourceAction": "源代码操作",
+    "editor.action.refactor": "重构",
+    "editor.action.organizeImports": "整理导入",
+    "editor.action.quickFix": "快速修复",
+    "editor.action.inlineSuggest.trigger": "触发内联建议",
+    "editor.action.triggerSuggest": "触发建议",
+    "editor.action.triggerParameterHints": "触发参数提示",
+    "editor.action.emmet.expandAbbreviation": "展开缩写",
+    "editor.action.toggleColumnSelection": "切换列选择",
+    "editor.action.toggleMultiCursorModifier": "切换多光标修改键",
+    "editor.action.insertCursorAbove": "在上方插入光标",
+    "editor.action.insertCursorBelow": "在下方插入光标",
+    "editor.action.copyLinesUpAction": "向上复制行",
+    "editor.action.copyLinesDownAction": "向下复制行",
+    "editor.action.moveLinesUpAction": "向上移动行",
+    "editor.action.moveLinesDownAction": "向下移动行",
+    "editor.action.deleteLines": "删除行",
+    "editor.action.indentLines": "缩进行",
+    "editor.action.outdentLines": "减少缩进行",
+    "editor.action.insertLineAfter": "在下方插入行",
+    "editor.action.insertLineBefore": "在上方插入行",
+    "editor.action.joinLines": "合并行",
+    "editor.action.transpose": "交换字符",
+    "editor.action.toggleWordWrap": "切换自动换行",
+    "editor.action.showHover": "显示悬停信息",
+    "editor.action.showContextMenu": "显示编辑器上下文菜单",
+    "editor.action.showAccessibilityHelp": "显示辅助功能帮助",
+    "editor.action.openLink": "打开链接",
+    "editor.action.selectToBracket": "选择到括号",
+    "editor.action.smartSelect.grow": "扩大选区",
+    "editor.action.smartSelect.shrink": "缩小选区",
+    "editor.action.formatDocument.none": "格式化文档",
+    "editor.action.forceFormatDocument": "强制格式化文档",
+    "editor.action.forceFormatSelection": "强制格式化所选内容",
+    "editor.action.codeLens": "切换 CodeLens",
+    "editor.action.toggleRenderWhitespace": "切换空白字符渲染",
+    "editor.action.toggleMinimap": "切换缩略图",
+    "editor.action.toggleStickyScroll": "切换粘性滚动",
+  };
+  function localizeMonacoMenu(editor) {
+    try {
+      var actions = editor.getActions();
+      if (!actions) return;
+      for (var i = 0; i < actions.length; i++) {
+        var a = actions[i];
+        if (a && a.id && CTX_MENU_ZH[a.id] && a.label !== CTX_MENU_ZH[a.id]) {
+          try { a.label = CTX_MENU_ZH[a.id]; } catch (e) { /* ignore */ }
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }
+
   // ---------- 主题样式 ----------
   var C = {
     bg: "#0d1117", panel: "#161b22", border: "#30363d",
@@ -192,6 +277,7 @@
     nodesRef.current = treeNodes;
     var treeRootRef = React.useRef(null); // 当前文件树根（快捷访问跳转后切换）
     var pendingOpen = null; // editor 就绪前缓存的待打开文件（刷新恢复）
+    var externalTargetRef = React.useRef(null); // 外部跳转（文件浏览器「编辑」）目标路径
 
     // 通知（3.5s 自动消失）
     function showNotice(type, text) {
@@ -269,6 +355,7 @@
       try {
         externalFile = localStorage.getItem("qwenpaw-code-editor:externalFile");
         if (externalFile) localStorage.removeItem("qwenpaw-code-editor:externalFile");
+        if (externalFile) externalTargetRef.current = externalFile;
       } catch (e) { /* ignore */ }
       fetchJson(API_BASE + "/status")
         .then(function (j) {
@@ -297,10 +384,11 @@
             }
             return loadChain(chain, function () {
               // 优先打开外部跳转指定文件（文件浏览器「编辑」）；否则恢复上次文件
-              var f = externalFile || localStorage.getItem(LS_FILE);
-              if (externalFile) {
+              var target = externalTargetRef.current;
+              var f = target || localStorage.getItem(LS_FILE);
+              if (target) {
                 // 同时把文件树定位到该文件所在目录（父目录若已加载则展开）
-                var parentDir = dirname(externalFile);
+                var parentDir = dirname(target);
                 if (parentDir && parentDir !== treeRootRef.current) {
                   loadDir(parentDir, parentDir, true);
                 }
@@ -346,6 +434,8 @@
         scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
       });
       editorRef.current = editor;
+      // 汉化 Monaco 内置右键菜单（改 action label，右键菜单实时读取生效）
+      localizeMonacoMenu(editor);
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, function () {
         saveFile();
       });
@@ -361,8 +451,10 @@
           try { localStorage.setItem(LS_SCROLL, String(editor.getScrollTop())); } catch (e) { /* ignore */ }
         }, 300);
       });
-      // 打开上次的文件（刷新恢复）+ 恢复滚动位置
-      var f = pendingOpen || localStorage.getItem(LS_FILE);
+      // 打开文件（刷新恢复 / 外部跳转）+ 恢复滚动位置。
+      // 优先外部跳转目标（文件浏览器「编辑」），其次 pendingOpen（初始化时 editor 未就绪缓存的
+      // 待打开文件），最后才恢复 LS_FILE——避免 Monaco 就绪并发 openPath 时旧文件覆盖目标。
+      var f = externalTargetRef.current || pendingOpen || localStorage.getItem(LS_FILE);
       if (f) {
         openPath(f).then(function () {
           var st = parseInt(localStorage.getItem(LS_SCROLL) || "0", 10);
