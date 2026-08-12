@@ -1,5 +1,5 @@
 /**
- * QwenPaw 代码编辑器 v0.1.3 — 前端 GUI
+ * QwenPaw 代码编辑器 v0.1.4 — 前端 GUI
  * 基于 Monaco Editor（VSCode 同款编辑器核心，CDN AMD 加载，无构建）：
  *   - 左侧文件树：懒加载目录、点击打开文件（仅访问当前工作区 / 平台 NAS 根）
  *   - 右侧编辑区：语法高亮自动识别（20+ 语言）、Ctrl+S 保存、未保存标记
@@ -20,7 +20,7 @@
 
   var PLUGIN_ID = "qwenpaw-code-editor";
   var PLUGIN_NAME = "代码编辑器";
-  var VERSION = "0.1.3";
+  var VERSION = "0.1.4";
   var API_BASE = "/api/qwenpaw-code-editor";
   var MONACO_CDN = "https://cdn.jsdelivr.net/npm/monaco-editor@0.56.0/min/vs";
 
@@ -143,20 +143,38 @@
       s.src = MONACO_CDN + "/loader.js";
       s.onload = function () {
         try {
-          // 官方 nls 语言包：Monaco 内置右键菜单（剪切/复制/粘贴/全选/更改所有匹配项/命令面板等）
-          // 由内部 ContextMenuController 创建，手动改 action label 无法覆盖；通过 nls 机制加载官方
-          // 中文语言包（min/vs/nls/lang/zh-cn.js），菜单、命令面板、查找替换框等全部内置文本一并汉化。
-          window.require.config({
-            paths: { vs: MONACO_CDN },
-            "vs/nls": { availableLanguages: { "*": "zh-cn" } },
-          });
-          window.require(["vs/editor/editor.main"], function () {
-            if (window.monaco && window.monaco.editor) {
-              resolve(window.monaco);
-            } else {
-              reject(new Error("monaco.editor 未就绪"));
-            }
-          });
+          window.require.config({ paths: { vs: MONACO_CDN } });
+          // 中文语言包：Monaco 内置右键菜单（剪切/复制/粘贴/全选/更改所有匹配项/命令面板等）
+          // 由内部 ContextMenuController 创建，手动改 action label 无法覆盖，只能走官方 nls 机制。
+          // ⚠ 官方 AMD 版语言包 vs/nls/lang/zh-cn.js 只设置 _VSCODE_NLS_MESSAGES 全局变量、不调用
+          // define()（microsoft/monaco-editor#5402：这会让 nls.messages-loader 的 AMD require
+          // 永久挂起 → 编辑器加载卡死）。修复：先把语言包当普通 script 预加载，再手动 define 注册
+          // 该模块，使 nls 插件链正常完成；语言包加载失败时退回英文（localizeMonacoMenu 兜底），
+          // 任何情况下都不阻塞编辑器加载。
+          var ls = document.createElement("script");
+          ls.src = MONACO_CDN + "/nls/lang/zh-cn.js";
+          ls.onload = function () {
+            try {
+              if (window.define) {
+                window.define("vs/nls/lang/zh-cn", [], function () {
+                  return globalThis._VSCODE_NLS_MESSAGES || [];
+                });
+              }
+              window.require.config({ "vs/nls": { availableLanguages: { "*": "zh-cn" } } });
+            } catch (e) { /* 注册失败则退回英文，不阻塞编辑器 */ }
+            bootEditor();
+          };
+          ls.onerror = function () { bootEditor(); };
+          document.head.appendChild(ls);
+          function bootEditor() {
+            window.require(["vs/editor/editor.main"], function () {
+              if (window.monaco && window.monaco.editor) {
+                resolve(window.monaco);
+              } else {
+                reject(new Error("monaco.editor 未就绪"));
+              }
+            });
+          }
         } catch (e) { reject(e); }
       };
       s.onerror = function () { reject(new Error("Monaco CDN 加载失败（请检查网络）")); };
@@ -441,8 +459,12 @@
         scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
       });
       editorRef.current = editor;
-      // 汉化 Monaco 内置右键菜单（改 action label，右键菜单实时读取生效）
-      localizeMonacoMenu(editor);
+      // 右键菜单汉化：优先走官方 nls 语言包（loadMonaco 已预加载 zh-cn 语言包并修复 #5402 挂起，
+      // 覆盖 Cut/Copy/Paste 等 ContextMenuController 内部固定项）；仅当语言包未生效（CDN 异常、
+      // 预加载失败）时才用 localizeMonacoMenu 改 action label 兜底，避免覆盖官方翻译。
+      if (!(globalThis._VSCODE_NLS_LANGUAGE === "zh-cn" && globalThis._VSCODE_NLS_MESSAGES)) {
+        localizeMonacoMenu(editor);
+      }
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, function () {
         saveFile();
       });

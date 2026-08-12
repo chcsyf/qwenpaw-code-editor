@@ -1,5 +1,16 @@
 # 变更记录
 
+## v0.1.4（2026-08-12）
+
+- **修复 v0.1.3 引入的加载卡死（严重 bug）**：直接配置 `vs/nls.availableLanguages['*']='zh-cn'`
+  会导致 Monaco AMD loader 永久挂起、编辑器一直停在「正在加载 Monaco Editor」——这是
+  monaco-editor 官方已知 bug（microsoft/monaco-editor#5402）：语言包 `vs/nls/lang/zh-cn.js`
+  只设置 `_VSCODE_NLS_MESSAGES` 全局变量、不调用 `define()`，而 `nls.messages-loader` 用 AMD
+  require 加载它，模块永远无法就绪。现改为：先把语言包当普通 `<script>` 预加载（全局变量生效），
+  再手动 `define("vs/nls/lang/zh-cn", ...)` 注册该模块，使 nls 插件链正常完成——右键菜单中文
+  汉化保留，同时编辑器加载恢复与英文版一致的速度。语言包加载失败时自动退回英文并用手动
+  label 兜底，任何情况下都不再阻塞加载
+
 ## v0.1.3（2026-08-12）
 
 - **右键菜单汉化改为官方 nls 语言包机制**：v0.1.2 的手动改 action label 方案无法覆盖
