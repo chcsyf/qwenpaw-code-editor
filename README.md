@@ -70,6 +70,10 @@ qwenpaw-code-editor/
 前端无构建：`ui/index.js` 运行时从 CDN 加载 Monaco AMD 版，通过
 `React.createElement` + 样式对象渲染，与 file-browser / web-terminal 同一套开发范式。
 
+## 变更记录
+
+见 [CHANGELOG.md](https://github.com/chcsyf/qwenpaw-code-editor/blob/main/CHANGELOG.md)。
+
 ## License
 
 Apache-2.0
