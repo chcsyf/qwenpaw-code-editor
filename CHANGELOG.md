@@ -1,5 +1,13 @@
 # 变更记录
 
+## v0.1.3（2026-08-12）
+
+- **右键菜单汉化改为官方 nls 语言包机制**：v0.1.2 的手动改 action label 方案无法覆盖
+  Cut/Copy/Paste/更改所有匹配项/命令面板 等固定菜单项（由 ContextMenuController 内部创建），
+  实际仍显示英文。现通过 `require.config` 配置 `vs/nls.availableLanguages['*']='zh-cn'`，
+  让 Monaco 加载官方中文语言包（min/vs/nls/lang/zh-cn.js），右键菜单、命令面板、查找替换框等
+  全部内置文本一次性汉化；手动改 label 仅作 CDN 语言包异常时的兜底
+
 ## v0.1.2（2026-08-12）
 
 - **右键菜单汉化**：Monaco 内置右键菜单（剪切 / 复制 / 粘贴 / 全选 / 复制（带语法高亮）/

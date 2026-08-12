@@ -143,7 +143,13 @@
       s.src = MONACO_CDN + "/loader.js";
       s.onload = function () {
         try {
-          window.require.config({ paths: { vs: MONACO_CDN } });
+          // 官方 nls 语言包：Monaco 内置右键菜单（剪切/复制/粘贴/全选/更改所有匹配项/命令面板等）
+          // 由内部 ContextMenuController 创建，手动改 action label 无法覆盖；通过 nls 机制加载官方
+          // 中文语言包（min/vs/nls/lang/zh-cn.js），菜单、命令面板、查找替换框等全部内置文本一并汉化。
+          window.require.config({
+            paths: { vs: MONACO_CDN },
+            "vs/nls": { availableLanguages: { "*": "zh-cn" } },
+          });
           window.require(["vs/editor/editor.main"], function () {
             if (window.monaco && window.monaco.editor) {
               resolve(window.monaco);
@@ -159,9 +165,10 @@
     return monacoPromise;
   }
 
-  // ---------- Monaco 右键菜单汉化 ----------
-  // Monaco 内置右键菜单（Cut/Copy/Paste/Select All/Command Palette 等）默认英文。
-  // 通过修改 action 的 label 汉化——右键菜单每次打开都从 action 实时读取 label，改后立即生效。
+  // ---------- Monaco 右键菜单汉化（兜底） ----------
+  // 主要汉化走官方 nls 语言包（loadMonaco 中 require.config 配置 vs/nls availableLanguages=zh-cn），
+  // 覆盖全部内置文本（含 Cut/Copy/Paste 等 ContextMenuController 内部创建的固定菜单项）。
+  // 此处遍历 editor.getActions() 改 label 仅作兜底：nls 语言包因 CDN 异常未加载时仍能汉化大部分可枚举项。
   var CTX_MENU_ZH = {
     "editor.action.clipboardCutAction": "剪切",
     "editor.action.clipboardCopyAction": "复制",
