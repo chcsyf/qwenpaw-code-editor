@@ -1,5 +1,18 @@
 # 变更记录
 
+## v0.1.5（2026-08-14）
+
+- **Robot Framework 语法高亮**：新增 `.robot` / `.resource` 扩展名支持（语言 id
+  `robotframework`，Monarch tokenizer 自定义实现）——覆盖 `*** 区块标题 ***`（Settings/
+  Variables/Test Cases/Tasks/Keywords 等）、`[Documentation]` `[Tags]` 等方括号设置、
+  `${var}` `@{list}` `&{dict}` `%{env}` 变量、`#` 注释与表格 `|` 分隔符，并对关键字调用
+  着色。与 QwenPaw 2.1.0 官方 Files Workspace 的 Robot Framework 支持（#6519）对齐
+- **OS Shell 窗口化声明**：`launch_scope` 由 `page` 改为 `window`——2.1.0 OS 桌面中作为
+  可移动/可调整大小窗口打开；2.0.1 不识别 `window` 值时自动回退 page 内嵌（功能不受影响，
+  渐进增强，无需改动其他代码）
+- **同步修复 plugin.py 版本号滞后**：`PLUGIN_VERSION` 原为 0.1.2（v0.1.3/v0.1.4 仅更新了
+  plugin.json 与前端），现统一为 0.1.5，与 plugin.json 一致
+
 ## v0.1.4（2026-08-12）
 
 - **修复 v0.1.3 引入的加载卡死（严重 bug）**：直接配置 `vs/nls.availableLanguages['*']='zh-cn'`

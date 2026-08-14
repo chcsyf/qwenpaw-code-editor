@@ -5,7 +5,7 @@
 ![qwenpaw-code-editor](https://raw.githubusercontent.com/chcsyf/qwenpaw-code-editor/main/qwenpaw-code-editor.png)
 
 - 左侧文件树浏览目录（懒加载），点击文件在右侧打开编辑
-- 按扩展名自动切换语法高亮（python / javascript / typescript / html / css / json / markdown / shell / go / rust / java / c/c++ 等 20+ 语言）
+- 按扩展名自动切换语法高亮（python / javascript / typescript / html / css / json / markdown / shell / go / rust / java / c/c++ / robot（Robot Framework）等 20+ 语言）
 - **Ctrl+S** 保存（也可点工具栏保存按钮），未保存时显示 ● 标记
 - 工具栏：刷新目录 / 新建文件 / 保存
 - 深色主题（GitHub Dark 风格），与其它 QwenPaw 插件一致

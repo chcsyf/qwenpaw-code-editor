@@ -25,7 +25,7 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-PLUGIN_VERSION = "0.1.2"
+PLUGIN_VERSION = "0.1.5"
 
 # 编辑器适合打开的文件大小上限（默认 2MB，超出提示用文件浏览器下载）
 MAX_READ_BYTES = 2 * 1024 * 1024

@@ -113,6 +113,7 @@
     lua: "lua", toml: "ini", ini: "ini", conf: "ini",
     txt: "plaintext", log: "plaintext", diff: "diff",
     dockerfile: "dockerfile", makefile: "makefile",
+    robot: "robotframework", resource: "robotframework",
   };
   function langForPath(p) {
     var b = basename(p).toLowerCase();
@@ -169,6 +170,7 @@
           function bootEditor() {
             window.require(["vs/editor/editor.main"], function () {
               if (window.monaco && window.monaco.editor) {
+                registerRobotFrameworkLanguage(window.monaco);
                 resolve(window.monaco);
               } else {
                 reject(new Error("monaco.editor 未就绪"));
@@ -181,6 +183,50 @@
       document.head.appendChild(s);
     });
     return monacoPromise;
+  }
+
+  // ---------- Robot Framework 语法高亮（Monarch tokenizer） ----------
+  // 官方 2.1.0 Files Workspace 已支持 Robot Framework 高亮（#6519），此处为编辑器补齐。
+  // 覆盖 .robot / .resource 文件：表格语法（*** 区块标题 ***、[标签]、| 分隔）、
+  // 关键字/变量/注释高亮。语言 id 用 "robotframework"，避免与第三方 robot 语言包冲突。
+  function registerRobotFrameworkLanguage(monaco) {
+    try {
+      if (monaco.languages.getLanguages().some(function (l) { return l.id === "robotframework"; })) {
+        return; // 已注册
+      }
+      monaco.languages.register({
+        id: "robotframework",
+        extensions: [".robot", ".resource"],
+        aliases: ["Robot Framework", "robot", "robotframework"],
+        mimetypes: ["text/x-robot"],
+      });
+      monaco.languages.setMonarchTokensProvider("robotframework", {
+        defaultToken: "",
+        ignoreCase: true,
+        tokenPostfix: ".robot",
+        brackets: [{ token: "delimiter.bracket", open: "[", close: "]" }],
+        tokenizer: {
+          root: [
+            // 区块标题：*** Settings *** / *** Variables *** / *** Test Cases *** / *** Keywords ***
+            [/^\s*(\*{3,})\s*(Settings|Variables|Test Cases|Tasks|Keywords|Comments|Documentation)\s*(\*{3,})\s*$/, ["keyword", "keyword.bold", "keyword"]],
+            // 单元内方括号设置：[Documentation] [Tags] [Setup] [Teardown] [Template] [Arguments] 等
+            [/^\s*(\[[^\]]+\])(.*)$/, ["tag", "comment.trailing"]],
+            // 赋值：${var}= / @{list}= / &{dict}= / %{env}=
+            [/^\s*(\$\{|\@\{|&\{|%\{)[^}\n]*\}(\s*=\s*)?/, "variable.predefined"],
+            // 行内变量：${var} @{list} &{dict} %{env}
+            [/(\$\{|\@\{|&\{|%\{)[^}\n]*\}/, "variable"],
+            // 注释（# 开头或行尾的 # 注释）
+            [/^\s*#.*$/, "comment"],
+            [/#.*$/, "comment"],
+            // 表格分隔符
+            [/[|]/, "delimiter"],
+            // 关键字调用 / 普通文本：第一列大写开头的识别为关键字
+            [/^\s*([A-Za-z_][A-Za-z0-9_ .]*)(\s{2,}|$)/, "keyword"],
+            [/[A-Za-z_][A-Za-z0-9_ .]*/, "identifier"],
+          ],
+        },
+      });
+    } catch (e) { /* 注册失败不影响编辑器 */ }
   }
 
   // ---------- Monaco 右键菜单汉化（兜底） ----------
