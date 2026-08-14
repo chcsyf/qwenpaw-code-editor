@@ -204,15 +204,15 @@
         defaultToken: "",
         ignoreCase: true,
         tokenPostfix: ".robot",
-        brackets: [{ token: "delimiter.bracket", open: "[", close: "]" }],
         tokenizer: {
           root: [
             // 区块标题：*** Settings *** / *** Variables *** / *** Test Cases *** / *** Keywords ***
-            [/^\s*(\*{3,})\s*(Settings|Variables|Test Cases|Tasks|Keywords|Comments|Documentation)\s*(\*{3,})\s*$/, ["keyword", "keyword.bold", "keyword"]],
+            // 注意：token 必须用字符串（数组映射在 Monarch 中会因带点号 token 名整条失败回退默认色）
+            [/^\s*(\*{3,})\s*(Settings|Variables|Test Cases|Tasks|Keywords|Comments|Documentation)\s*(\*{3,})\s*$/, "keyword"],
             // 单元内方括号设置：[Documentation] [Tags] [Setup] [Teardown] [Template] [Arguments] 等
-            [/^\s*(\[[^\]]+\])(.*)$/, ["tag", "comment.trailing"]],
+            [/^\s*\[[^\]]*\]/, "tag"],
             // 赋值：${var}= / @{list}= / &{dict}= / %{env}=
-            [/^\s*(\$\{|\@\{|&\{|%\{)[^}\n]*\}(\s*=\s*)?/, "variable.predefined"],
+            [/^\s*(\$\{|\@\{|&\{|%\{)[^}\n]*\}/, "variable.predefined"],
             // 行内变量：${var} @{list} &{dict} %{env}
             [/(\$\{|\@\{|&\{|%\{)[^}\n]*\}/, "variable"],
             // 注释（# 开头或行尾的 # 注释）
