@@ -1,7 +1,9 @@
 /**
- * QwenPaw 代码编辑器 v0.1.4 — 前端 GUI
+ * QwenPaw 代码编辑器 v0.1.7 — 前端 GUI
  * 基于 Monaco Editor（VSCode 同款编辑器核心，CDN AMD 加载，无构建）：
  *   - 左侧文件树：懒加载目录、点击打开文件（仅访问当前工作区 / 平台 NAS 根）
+ *   - 文件树右键菜单：打开 / 复制路径 / 下载（文件）/ 重命名 / 删除；目录可「添加到快捷访问」
+ *   - 快捷访问：系统根 + 用户自定义（📌，右侧 ✕ 可移除，localStorage 持久化）
  *   - 右侧编辑区：语法高亮自动识别（20+ 语言）、Ctrl+S 保存、未保存标记
  *   - 工具栏：刷新 / 新建文件 / 保存
  * 开发范式同 file-browser / web-terminal：React.createElement + 样式对象 + GitHub Dark。
@@ -20,7 +22,7 @@
 
   var PLUGIN_ID = "qwenpaw-code-editor";
   var PLUGIN_NAME = "代码编辑器";
-  var VERSION = "0.1.4";
+  var VERSION = "0.1.7";
   var API_BASE = "/api/qwenpaw-code-editor";
   var MONACO_CDN = "https://cdn.jsdelivr.net/npm/monaco-editor@0.56.0/min/vs";
 
@@ -30,6 +32,7 @@
   var LS_FILE = "qwenpaw-code-editor:file";          // 当前打开文件（刷新恢复）
   var LS_SCROLL = "qwenpaw-code-editor:scroll";      // 编辑器滚动位置（刷新恢复）
   var LS_QUICK = "qwenpaw-code-editor:quick";        // 快捷访问折叠状态（刷新恢复）
+  var LS_QUICK_CUSTOM = "qwenpaw-code-editor:quickCustom"; // 用户自定义快捷访问 [{path,label}]（刷新恢复）
 
   // fetch 封装
   function fetchJson(url, opts) {
@@ -340,6 +343,13 @@
     var [quickCollapsed, setQuickCollapsed] = React.useState(function () {
       try { return localStorage.getItem(LS_QUICK) === "1"; } catch (e) { return false; }
     });
+    var [ctxMenu, setCtxMenu] = React.useState(null); // {x, y, item} 文件树右键菜单
+    var [customQuick, setCustomQuick] = React.useState(function () {
+      try {
+        var arr = JSON.parse(localStorage.getItem(LS_QUICK_CUSTOM) || "[]");
+        return Array.isArray(arr) ? arr : [];
+      } catch (e) { return []; }
+    });
 
     var editorRef = React.useRef(null);
     var editorElRef = React.useRef(null);
@@ -356,6 +366,29 @@
       if (self._noticeTimer) clearTimeout(self._noticeTimer);
       self._noticeTimer = setTimeout(function () { setNotice(null); }, 3500);
     }
+
+    // 右键菜单关闭：点击其他区域 / 滚轮 / Esc / 右键其它位置。
+    // 右键菜单本身或文件树行内右键不触发关闭（行内由 onContextMenu 自己管理）。
+    React.useEffect(function () {
+      function closeOnClick() { setCtxMenu(null); }
+      function closeOnWheel() { setCtxMenu(null); }
+      function closeOnKey(e) { if (e.key === "Escape") setCtxMenu(null); }
+      function closeOnOtherContext(e) {
+        if (e.target && e.target.closest &&
+            (e.target.closest(".ce-tree-row") || e.target.closest(".ce-ctx-menu"))) return;
+        setCtxMenu(null);
+      }
+      document.addEventListener("click", closeOnClick);
+      document.addEventListener("wheel", closeOnWheel);
+      document.addEventListener("contextmenu", closeOnOtherContext);
+      document.addEventListener("keydown", closeOnKey);
+      return function () {
+        document.removeEventListener("click", closeOnClick);
+        document.removeEventListener("wheel", closeOnWheel);
+        document.removeEventListener("contextmenu", closeOnOtherContext);
+        document.removeEventListener("keydown", closeOnKey);
+      };
+    }, []);
 
     // 加载目录 children
     function loadDir(path, nodeKey, silent) {
@@ -659,6 +692,141 @@
       openPath(item.path);
     }
 
+    // ---------- 文件右键菜单动作 ----------
+
+    // 复制路径（clipboard API 失败时回退 execCommand）
+    function copyPath(item) {
+      var text = item.path;
+      function fallback() {
+        try {
+          var ta = document.createElement("textarea");
+          ta.value = text;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.focus();
+          ta.select();
+          var ok = document.execCommand("copy");
+          document.body.removeChild(ta);
+          showNotice(ok ? "ok" : "error", ok ? "已复制路径" : "复制失败");
+        } catch (e) { showNotice("error", "复制失败"); }
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () {
+          showNotice("ok", "已复制路径");
+        }, fallback);
+      } else {
+        fallback();
+      }
+    }
+
+    // 下载文件（走后端 /download attachment 接口）
+    function downloadFile(item) {
+      try {
+        var a = document.createElement("a");
+        a.href = API_BASE + "/download?path=" + encodeURIComponent(item.path);
+        a.download = basename(item.path);
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch (e) { showNotice("error", "下载失败: " + e.message); }
+    }
+
+    // 重命名 / 删除后刷新父目录（保持原展开状态）
+    function reloadParent(path) {
+      var parent = dirname(path);
+      if (!parent || !nodesRef.current[parent]) return;
+      var wasExpanded = nodesRef.current[parent].expanded;
+      loadDir(parent, parent, true).then(function () {
+        if (!wasExpanded) {
+          var next = Object.assign({}, nodesRef.current);
+          if (next[parent]) next[parent] = Object.assign({}, next[parent], { expanded: false });
+          nodesRef.current = next;
+          setTreeNodes(next);
+        }
+      });
+    }
+
+    // 重命名（后端仅允许同级改名）
+    function renameItem(item) {
+      var oldName = basename(item.path);
+      var name = window.prompt("重命名为（当前目录下）：", oldName);
+      if (!name) return;
+      var newName = name.trim();
+      if (!newName || newName === oldName) return;
+      setBusy("重命名…");
+      fetchJson(API_BASE + "/rename", { method: "POST", body: { path: item.path, new_name: newName } })
+        .then(function (j) {
+          // 若重命名的是当前打开文件，同步更新打开状态与缓存
+          if (openFile && openFile.path === item.path) {
+            var np = j.path;
+            setOpenFile(Object.assign({}, openFile, { path: np, name: newName }));
+            try { localStorage.setItem(LS_FILE, np); } catch (e) { /* ignore */ }
+          }
+          reloadParent(item.path);
+          showNotice("ok", "已重命名 → " + newName);
+        })
+        .catch(function (e) { showNotice("error", "重命名失败: " + e.message); })
+        .finally(function () { setBusy(""); });
+    }
+
+    // 删除（文件或目录；前端二次确认）
+    function deleteItem(item) {
+      var kind = item.type === "dir" ? "目录" : "文件";
+      if (!window.confirm("确定删除" + kind + " " + item.path + " ？\n删除后不可恢复！")) return;
+      setBusy("删除…");
+      fetchJson(API_BASE + "/delete", { method: "POST", body: { path: item.path } })
+        .then(function () {
+          // 若删除的是当前打开文件，清空编辑器
+          if (openFile && openFile.path === item.path) {
+            if (editorRef.current) {
+              suppressChange.current = true;
+              editorRef.current.setValue("");
+              suppressChange.current = false;
+            }
+            setOpenFile(null);
+            try { localStorage.removeItem(LS_FILE); } catch (e) { /* ignore */ }
+          }
+          // 若删除的是已展开的目录，清理其子树缓存，避免残留
+          var next = Object.assign({}, nodesRef.current);
+          Object.keys(next).forEach(function (k) {
+            if (k === item.path || k.indexOf(item.path + "/") === 0) delete next[k];
+          });
+          nodesRef.current = next;
+          setTreeNodes(next);
+          reloadParent(item.path);
+          showNotice("ok", "已删除 " + item.path);
+        })
+        .catch(function (e) { showNotice("error", "删除失败: " + e.message); })
+        .finally(function () { setBusy(""); });
+    }
+
+    // ---------- 自定义快捷访问（localStorage 持久化） ----------
+
+    function normQuickPath(p) { return String(p).replace(/\/+$/, ""); }
+    function saveQuickCustom(list) {
+      try { localStorage.setItem(LS_QUICK_CUSTOM, JSON.stringify(list)); } catch (e) { /* ignore */ }
+    }
+    function isInQuick(path) {
+      var p = normQuickPath(path);
+      return customQuick.some(function (c) { return normQuickPath(c.path) === p; });
+    }
+    function addToQuick(item) {
+      if (isInQuick(item.path)) { showNotice("info", "已在快捷访问中"); return; }
+      var entry = { path: normQuickPath(item.path), label: basename(item.path) };
+      var next = customQuick.concat([entry]);
+      setCustomQuick(next);
+      saveQuickCustom(next);
+      showNotice("ok", "已添加到快捷访问");
+    }
+    function removeFromQuick(path) {
+      var p = normQuickPath(path);
+      var next = customQuick.filter(function (c) { return normQuickPath(c.path) !== p; });
+      setCustomQuick(next);
+      saveQuickCustom(next);
+      showNotice("ok", "已从快捷访问移除");
+    }
+
     // 渲染树节点
     function renderNode(nodeKey, node, depth) {
       if (!node) return null;
@@ -678,10 +846,16 @@
         : h("span", { style: { width: 18 } });
       return h("div", { key: nodeKey },
         h("div", {
+          className: "ce-tree-row",
           style: rowStyle,
           onClick: function () {
             if (isDir) { toggleDir(nodeKey, item); }
             else { clickFile(item); }
+          },
+          onContextMenu: function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            setCtxMenu({ x: e.clientX, y: e.clientY, item: item });
           },
           title: item.path,
         },
@@ -724,26 +898,53 @@
           "⚡ 快捷访问",
           h("span", { style: { marginLeft: "auto", fontSize: 10, color: C.muted } }, quickCollapsed ? "展开" : "折叠"),
         ),
-        quickCollapsed ? null : status.roots.map(function (r) {
-          var agent = isAgent(r.label);
-          var icon = agent ? "🤖"
-            : r.label === "WORKING_DIR" ? "🏠"
-            : r.path === "/" ? "🌐"
-            : r.path === "/run/csi/mount-root/nas" ? "🗄️"
-            : "📂";
-          // label 已含 🤖 前缀（后端与 file-browser 一致），渲染时去掉，避免与 icon 重复
-          var label = agent ? r.label.replace(/^🤖\s*/, "") : r.label;
-          return h("div", {
-            key: r.path,
-            style: qStyle,
-            onClick: function () { jumpTo(r.path); },
-            title: r.path,
+        quickCollapsed ? null : h("div", null,
+          status.roots.map(function (r) {
+            var agent = isAgent(r.label);
+            var icon = agent ? "🤖"
+              : r.label === "WORKING_DIR" ? "🏠"
+              : r.path === "/" ? "🌐"
+              : r.path === "/run/csi/mount-root/nas" ? "🗄️"
+              : "📂";
+            // label 已含 🤖 前缀（后端与 file-browser 一致），渲染时去掉，避免与 icon 重复
+            var label = agent ? r.label.replace(/^🤖\s*/, "") : r.label;
+            return h("div", {
+              key: r.path,
+              style: qStyle,
+              onClick: function () { jumpTo(r.path); },
+              title: r.path,
+            },
+              h("span", { style: { flex: "0 0 auto" } }, icon),
+              h("span", { style: { overflow: "hidden", textOverflow: "ellipsis" } }, label),
+              selectedDir === r.path ? h("span", { style: { marginLeft: "auto", color: C.accent } }, "✓") : null
+            );
+          }),
+          // 用户自定义快捷访问（右键「添加到快捷访问」加入；右侧 ✕ 可移除）
+          customQuick.length ? h("div", {
+            style: { marginTop: 4, paddingTop: 4, borderTop: "1px solid " + C.border },
           },
-            h("span", { style: { flex: "0 0 auto" } }, icon),
-            h("span", { style: { overflow: "hidden", textOverflow: "ellipsis" } }, label),
-            selectedDir === r.path ? h("span", { style: { marginLeft: "auto", color: C.accent } }, "✓") : null
-          );
-        }),
+            customQuick.map(function (c) {
+              var label = c.label || basename(c.path);
+              return h("div", {
+                key: c.path,
+                style: qStyle,
+                onClick: function () { jumpTo(c.path); },
+                title: c.path,
+              },
+                h("span", { style: { flex: "0 0 auto" } }, "📌"),
+                h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", flex: "1 1 auto", minWidth: 0 } }, label),
+                selectedDir === c.path ? h("span", { style: { marginLeft: "auto", color: C.accent } }, "✓") : null,
+                h("span", {
+                  style: { flex: "0 0 auto", marginLeft: 6, cursor: "pointer", color: C.muted, fontSize: 12, padding: "0 3px", borderRadius: 4, lineHeight: "16px" },
+                  onClick: function (e) { e.stopPropagation(); removeFromQuick(c.path); },
+                  onMouseEnter: function (e) { e.currentTarget.style.color = C.red; },
+                  onMouseLeave: function (e) { e.currentTarget.style.color = C.muted; },
+                  title: "从快捷访问移除",
+                }, "✕")
+              );
+            })
+          ) : null
+        ),
       );
     }
 
@@ -755,6 +956,61 @@
       return h("div", { className: "ce-tree-scroll", style: { overflow: "auto", flex: 1, paddingBottom: 8 } },
         renderNode(treeRoot, rootNode, 0)
       );
+    }
+
+    // 文件树右键菜单（打开 / 复制路径 / 下载（文件）/ 重命名 / 删除；目录可添加到快捷访问）
+    function renderCtxMenu() {
+      if (!ctxMenu) return null;
+      var item = ctxMenu.item;
+      var isDir = item.type === "dir";
+      var menuW = 190, menuH = 6 + 5 * 30; // 行高估算，用于贴边
+      var x = Math.max(0, Math.min(ctxMenu.x, window.innerWidth - menuW));
+      var y = Math.max(0, Math.min(ctxMenu.y, window.innerHeight - menuH));
+      var menuStyle = {
+        position: "fixed", left: x, top: y, zIndex: 99999,
+        minWidth: 182, background: C.panel, border: "1px solid " + C.border,
+        borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,.5)",
+        padding: 4, fontSize: 13, color: C.text, userSelect: "none",
+      };
+      var rowBase = {
+        padding: "6px 10px", borderRadius: 6, cursor: "pointer",
+        display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap",
+      };
+      function menuRow(label, icon, fn, danger, disabled) {
+        return h("div", {
+          key: label,
+          style: Object.assign({}, rowBase,
+            danger ? { color: C.red } : {},
+            disabled ? { color: C.muted, cursor: "not-allowed", opacity: .65 } : {}),
+          onMouseEnter: function (e) { if (!disabled) e.currentTarget.style.background = C.hover; },
+          onMouseLeave: function (e) { e.currentTarget.style.background = "transparent"; },
+          onClick: function (e) {
+            e.stopPropagation();
+            if (disabled) return;
+            setCtxMenu(null);
+            fn(item);
+          },
+        },
+          h("span", { style: { width: 16, textAlign: "center", flex: "0 0 auto" } }, icon),
+          h("span", null, label)
+        );
+      }
+      var rows = [];
+      if (isDir) {
+        rows.push(menuRow("打开 / 展开", "📂", function () { toggleDir(item.path, item); }));
+        rows.push(menuRow(isInQuick(item.path) ? "已在快捷访问" : "添加到快捷访问", "📌", addToQuick, false, isInQuick(item.path)));
+      } else {
+        rows.push(menuRow("打开", "📄", function () { clickFile(item); }));
+      }
+      rows.push(menuRow("复制路径", "📋", copyPath));
+      if (!isDir) rows.push(menuRow("下载", "⬇️", downloadFile));
+      rows.push(menuRow("重命名", "✏️", renameItem));
+      rows.push(menuRow("删除", "🗑️", deleteItem, true));
+      return h("div", {
+        className: "ce-ctx-menu",
+        style: menuStyle,
+        onContextMenu: function (e) { e.preventDefault(); e.stopPropagation(); },
+      }, rows);
     }
 
     // 顶部工具栏
@@ -862,6 +1118,7 @@
           renderStatusBar(),
         ),
       ),
+      renderCtxMenu(),
     );
   }
 

@@ -1,8 +1,8 @@
 {
   "id": "qwenpaw-code-editor",
   "name": "代码编辑器",
-  "version": "0.1.5",
-  "description": "QwenPaw 代码编辑器 v0.1.5：基于 Monaco Editor（VSCode 同款编辑器核心）的在线代码编辑应用，支持浏览工作区目录、打开/编辑/新建文本与代码文件、Ctrl+S 保存；按扩展名自动切换语法高亮（python/javascript/typescript/html/css/json/markdown/shell/robot 等 20+ 语言，含 Robot Framework .robot/.resource 高亮），深色主题；右键菜单通过官方 nls 语言包完整汉化（含剪切/复制/粘贴/更改所有匹配项/命令面板等，修复语言包 AMD 挂起导致加载卡死问题）；支持从文件浏览器「编辑」一键跳转打开文件；默认仅可访问当前工作区（平台模式可访问系统所有可读路径，遵循权限），二进制/超大文件安全拦截",
+  "version": "0.1.7",
+  "description": "QwenPaw 代码编辑器 v0.1.7：基于 Monaco Editor（VSCode 同款编辑器核心）的在线代码编辑应用，支持浏览工作区目录、打开/编辑/新建文本与代码文件、Ctrl+S 保存；按扩展名自动切换语法高亮（python/javascript/typescript/html/css/json/markdown/shell/robot 等 20+ 语言，含 Robot Framework .robot/.resource 高亮），深色主题；文件树右键菜单：打开 / 复制路径 / 下载 / 重命名 / 删除，目录可添加到快捷访问（📌 自定义快捷访问支持 ✕ 移除，刷新保留）；右键菜单通过官方 nls 语言包完整汉化（含剪切/复制/粘贴/更改所有匹配项/命令面板等，修复语言包 AMD 挂起导致加载卡死问题）；支持从文件浏览器「编辑」一键跳转打开文件；默认仅可访问当前工作区（平台模式可访问系统所有可读路径，遵循权限），二进制/超大文件安全拦截",
   "author": "QwenPaw QA Agent",
   "license": "Apache-2.0",
   "type": "app",

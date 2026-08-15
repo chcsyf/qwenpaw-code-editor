@@ -15,17 +15,22 @@ QwenPaw 代码编辑器插件 v0.1.2
   - GET  /ls?path=          列出目录（path 支持绝对路径或相对 WORKING_DIR；空 = WORKING_DIR）
   - GET  /read?path=        读取文本文件内容（二进制/超大文件安全拦截；默认上限 2MB）
   - POST /write             保存文件 {path, content}（UTF-8；自动创建父目录；拒绝覆盖目录）
+  - POST /rename            重命名 {path, new_name}（仅同级改名，不可跨目录）
+  - POST /delete            删除文件或目录 {path}（目录递归删除；前端需二次确认）
+  - GET  /download?path=    下载文件（attachment；目录拒绝）
 """
 import logging
 import os
+import shutil
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-PLUGIN_VERSION = "0.1.5"
+PLUGIN_VERSION = "0.1.7"
 
 # 编辑器适合打开的文件大小上限（默认 2MB，超出提示用文件浏览器下载）
 MAX_READ_BYTES = 2 * 1024 * 1024
@@ -206,6 +211,13 @@ class WriteReq(BaseModel):
     path: str
     content: str
 
+class RenameReq(BaseModel):
+    path: str
+    new_name: str
+
+class DeleteReq(BaseModel):
+    path: str
+
 # ---------- 接口 ----------
 
 @router.get("/status")
@@ -265,6 +277,49 @@ async def write_file(req: WriteReq):
     except OSError as e:
         raise HTTPException(500, f"保存失败：{e}")
     return {"path": str(p), "bytes": p.stat().st_size}
+
+@router.post("/rename")
+async def rename_path(req: RenameReq):
+    """重命名：仅同级改名（new_name 为 basename，不能含 /）。"""
+    p = _resolve(req.path)
+    if not p.exists():
+        raise HTTPException(404, "路径不存在")
+    name = req.new_name.strip()
+    if not name or "/" in name or name in (".", ".."):
+        raise HTTPException(400, "新名称无效（不能为空、不能包含 /）")
+    target = p.parent / name
+    if target.exists():
+        raise HTTPException(400, f"目标已存在：{name}")
+    try:
+        p.rename(target)
+    except OSError as e:
+        raise HTTPException(500, f"重命名失败：{e}")
+    return {"path": str(target), "name": name}
+
+@router.post("/delete")
+async def delete_path(req: DeleteReq):
+    """删除文件或目录（目录递归删除；前端应二次确认）。"""
+    p = _resolve(req.path)
+    if not p.exists():
+        raise HTTPException(404, "路径不存在")
+    try:
+        if p.is_dir() and not p.is_symlink():
+            shutil.rmtree(p)
+        else:
+            p.unlink()
+    except OSError as e:
+        raise HTTPException(500, f"删除失败：{e}")
+    return {"path": str(p)}
+
+@router.get("/download")
+async def download_file(path: str = Query("", description="文件路径")):
+    """下载文件（attachment；目录拒绝）。"""
+    p = _resolve(path)
+    if not p.exists():
+        raise HTTPException(404, "文件不存在")
+    if p.is_dir():
+        raise HTTPException(400, "目录不支持下载")
+    return FileResponse(p, filename=p.name)
 
 # ---------- 插件注册 ----------
 
