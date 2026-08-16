@@ -1,5 +1,5 @@
 /**
- * QwenPaw 代码编辑器 v0.1.7 — 前端 GUI
+ * QwenPaw 代码编辑器 v0.1.8 — 前端 GUI
  * 基于 Monaco Editor（VSCode 同款编辑器核心，CDN AMD 加载，无构建）：
  *   - 左侧文件树：懒加载目录、点击打开文件（仅访问当前工作区 / 平台 NAS 根）
  *   - 文件树右键菜单：打开 / 复制路径 / 下载（文件）/ 重命名 / 删除；目录可「添加到快捷访问」
@@ -22,7 +22,7 @@
 
   var PLUGIN_ID = "qwenpaw-code-editor";
   var PLUGIN_NAME = "代码编辑器";
-  var VERSION = "0.1.7";
+  var VERSION = "0.1.8";
   var API_BASE = "/api/qwenpaw-code-editor";
   var MONACO_CDN = "https://cdn.jsdelivr.net/npm/monaco-editor@0.56.0/min/vs";
 
@@ -491,10 +491,25 @@
               var target = externalTargetRef.current;
               var f = target || localStorage.getItem(LS_FILE);
               if (target) {
-                // 同时把文件树定位到该文件所在目录（父目录若已加载则展开）
+                // 文件树定位到目标文件所在目录并展开：
+                //  - 父目录在当前树根链上 → 逐级展开整条链（树根 → 父目录）
+                //  - 父目录不在当前树根下 → 树根切换到父目录（立即展开该目录）
                 var parentDir = dirname(target);
-                if (parentDir && parentDir !== treeRootRef.current) {
-                  loadDir(parentDir, parentDir, true);
+                var treeRoot = treeRootRef.current;
+                if (parentDir && parentDir !== treeRoot) {
+                  if (parentDir.indexOf(treeRoot + "/") === 0) {
+                    var subChain = [];
+                    var cur = parentDir;
+                    while (cur && cur !== treeRoot) { subChain.unshift(cur); cur = dirname(cur); }
+                    loadChain(subChain, function () { });
+                  } else {
+                    treeRootRef.current = parentDir;
+                    nodesRef.current = {};
+                    setTreeNodes({});
+                    setSelectedDir(parentDir);
+                    try { localStorage.setItem(LS_LAST_DIR, parentDir); } catch (e) { /* ignore */ }
+                    loadDir(parentDir, parentDir, true);
+                  }
                 }
               }
               if (f && editorRef.current) { openPath(f); }
@@ -1025,7 +1040,7 @@
           borderBottom: "1px solid " + C.border, background: C.panel, flexWrap: "wrap",
         }
       },
-        h("span", { style: { fontWeight: 600, color: C.text, fontSize: 13.5, marginRight: 4 } }, "📝 " + PLUGIN_NAME),
+        h("span", { style: { fontWeight: 600, color: C.text, fontSize: 13.5, marginRight: 4 } }, "📝" + PLUGIN_NAME),
         h("span", { style: { color: C.muted, fontSize: 11, marginRight: 8 } }, "v" + VERSION),
         h("button", { style: btnBase, onClick: function () { setTreeNodes({}); loadDir(selectedDir || rootPath, selectedDir || rootPath); } }, "⟳ 刷新"),
         h("button", { style: btnBase, onClick: newFile }, "➕ 新建文件"),
