@@ -1,5 +1,12 @@
 # 变更记录
 
+## v0.1.9 - 2026-09-17
+
+- **修复：6 个文件 I/O 处理器阻塞事件循环**
+  - 受影响：`/ls`、`/read`、`/write`、`/rename`、`/delete`、`/download`
+    （`iterdir`/`stat`/`read_text`/`write_text`/`rename`/`rmtree` 均为阻塞式 I/O）。
+  - 修复：由 `async def` 改为同步 `def`，交给 FastAPI 线程池执行，不再占用事件循环线程。
+
 ## v0.1.8（2026-08-16）
 
 - **工具栏标题**：图标与文字间去掉空格（📝代码编辑器），与宿主侧栏菜单入口视觉一致

@@ -30,7 +30,7 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-PLUGIN_VERSION = "0.1.8"
+PLUGIN_VERSION = "0.1.9"
 
 # 编辑器适合打开的文件大小上限（默认 2MB，超出提示用文件浏览器下载）
 MAX_READ_BYTES = 2 * 1024 * 1024
@@ -219,6 +219,11 @@ class DeleteReq(BaseModel):
     path: str
 
 # ---------- 接口 ----------
+#
+# 约定：凡是要做文件 I/O 的处理器一律用**同步 def**（FastAPI 会自动把它们丢到
+# 线程池执行）；禁止用 async def 直接做阻塞式文件 I/O —— 那会在事件循环线程上跑，
+# 冻结整个 QwenPaw 服务（工作区在 NAS/NFS 上时尤其明显）。
+# 只有纯计算、无 I/O 的处理器才写 async def。
 
 @router.get("/status")
 async def status():
@@ -234,7 +239,7 @@ async def status():
     }
 
 @router.get("/ls")
-async def ls(path: str = Query("", description="目录路径（绝对或相对 WORKING_DIR；空 = WORKING_DIR）")):
+def ls(path: str = Query("", description="目录路径（绝对或相对 WORKING_DIR；空 = WORKING_DIR）")):
     p = _resolve(path)
     if not p.exists():
         raise HTTPException(404, "路径不存在")
@@ -243,7 +248,7 @@ async def ls(path: str = Query("", description="目录路径（绝对或相对 W
     return {"path": str(p), "items": _sorted_items(p)}
 
 @router.get("/read")
-async def read_file(path: str = Query("", description="文件路径（绝对或相对 WORKING_DIR）")):
+def read_file(path: str = Query("", description="文件路径（绝对或相对 WORKING_DIR）")):
     p = _resolve(path)
     if not p.exists():
         raise HTTPException(404, "文件不存在")
@@ -266,7 +271,7 @@ async def read_file(path: str = Query("", description="文件路径（绝对或�
     return {"path": str(p), "size": size, "content": content}
 
 @router.post("/write")
-async def write_file(req: WriteReq):
+def write_file(req: WriteReq):
     p = _resolve(req.path)
     if p.exists() and p.is_dir():
         raise HTTPException(400, "目标路径是目录，不能写入")
@@ -279,7 +284,7 @@ async def write_file(req: WriteReq):
     return {"path": str(p), "bytes": p.stat().st_size}
 
 @router.post("/rename")
-async def rename_path(req: RenameReq):
+def rename_path(req: RenameReq):
     """重命名：仅同级改名（new_name 为 basename，不能含 /）。"""
     p = _resolve(req.path)
     if not p.exists():
@@ -297,7 +302,7 @@ async def rename_path(req: RenameReq):
     return {"path": str(target), "name": name}
 
 @router.post("/delete")
-async def delete_path(req: DeleteReq):
+def delete_path(req: DeleteReq):
     """删除文件或目录（目录递归删除；前端应二次确认）。"""
     p = _resolve(req.path)
     if not p.exists():
@@ -312,7 +317,7 @@ async def delete_path(req: DeleteReq):
     return {"path": str(p)}
 
 @router.get("/download")
-async def download_file(path: str = Query("", description="文件路径")):
+def download_file(path: str = Query("", description="文件路径")):
     """下载文件（attachment；目录拒绝）。"""
     p = _resolve(path)
     if not p.exists():

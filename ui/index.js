@@ -22,7 +22,7 @@
 
   var PLUGIN_ID = "qwenpaw-code-editor";
   var PLUGIN_NAME = "代码编辑器";
-  var VERSION = "0.1.8";
+  var VERSION = "0.1.9";
   var API_BASE = "/api/qwenpaw-code-editor";
   var MONACO_CDN = "https://cdn.jsdelivr.net/npm/monaco-editor@0.56.0/min/vs";
 
